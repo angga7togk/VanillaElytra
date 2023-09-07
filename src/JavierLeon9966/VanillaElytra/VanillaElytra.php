@@ -4,9 +4,6 @@ declare(strict_types = 1);
 
 namespace JavierLeon9966\VanillaElytra;
 
-use BlockHorizons\Fireworks\entity\FireworksRocket;
-use BlockHorizons\Fireworks\item\Fireworks;
-
 use JavierLeon9966\VanillaElytra\item\ExtraVanillaItems;
 use pocketmine\data\bedrock\item\ItemTypeNames;
 use pocketmine\data\bedrock\item\SavedItemData;
@@ -14,8 +11,10 @@ use pocketmine\event\EventPriority;
 use pocketmine\event\Listener;
 use pocketmine\event\player\{PlayerItemUseEvent, PlayerMoveEvent, PlayerToggleGlideEvent, PlayerQuitEvent};
 use pocketmine\inventory\{ArmorInventory, CreativeInventory};
-use pocketmine\item\{ArmorTypeInfo, ItemIdentifier, ItemTypeIds, StringToItemParser};
+use pocketmine\item\{ArmorTypeInfo, FireworkRocket, ItemIdentifier, ItemTypeIds, StringToItemParser};
+use pocketmine\math\Vector3;
 use pocketmine\network\mcpe\protocol\types\entity\EntityMetadataProperties;
+use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\scheduler\{ClosureTask, TaskHandler};
 use pocketmine\world\format\io\GlobalItemDataHandlers;
@@ -33,6 +32,9 @@ final class VanillaElytra extends PluginBase implements Listener{
 	 */
 	private array $glidingTicker = [];
 
+	/**
+	 * @throws \ReflectionException
+	 */
 	public function onEnable(): void{
 		$itemDeserializer = GlobalItemDataHandlers::getDeserializer();
 		$itemSerializer = GlobalItemDataHandlers::getSerializer();
@@ -46,14 +48,14 @@ final class VanillaElytra extends PluginBase implements Listener{
 		$stringToItemParser->register('elytra', static fn() => clone $elytra);
 
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
-		if(!class_exists(Fireworks::class)){
+		if(!class_exists(FireworkRocket::class)){
 			return;
 		}
 		$this->getServer()->getPluginManager()->registerEvent(PlayerItemUseEvent::class, static function(PlayerItemUseEvent $event): void{
 			$player = $event->getPlayer();
 			$inventory = $player->getInventory();
 			$item = $inventory->getItemInHand();
-			if(!$item instanceof Fireworks){
+			if(!$item instanceof FireworkRocket){
 				return;
 			}
 			if(!$player->isGliding()){
@@ -63,11 +65,14 @@ final class VanillaElytra extends PluginBase implements Listener{
 			$item->pop();
 
 			$location = $player->getLocation();
-			$entity = new FireworksRocket($location, $item);
+
+			$entity = new \pocketmine\entity\object\FireworkRocket($location, 0, []);
 			$entity->getNetworkProperties()->setLong(EntityMetadataProperties::MINECART_HAS_DISPLAY, $player->getId());
 			$entity->setOwningEntity($player);
+			$entity->setMotion(new Vector3(lcg_value() * 0.001, 0.05, lcg_value() * 0.001));
 			$entity->spawnToAll();
 
+			$player->setMotion($player->getDirectionVector()->multiply(1.8));
 			$inventory->setItemInHand($item);
 		}, EventPriority::MONITOR, $this);
 	}
@@ -81,6 +86,9 @@ final class VanillaElytra extends PluginBase implements Listener{
 			return;
 		}
 
+		if($player->isOnGround()){
+			$player->toggleGlide(false);
+		}
 		$location = $event->getFrom();
 		if($location->pitch >= self::MINIMUM_PITCH and $location->pitch <= self::MAXIMUM_PITCH){
 			$player->resetFallDistance();
