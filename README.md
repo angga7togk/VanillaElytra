@@ -1,2 +1,2 @@
 # VanillaElytra
-This plugin implements vanilla Elytra into PocketMine-MP
+This plugin implements vanilla Elytra into PocketMine-MP Nethergames
